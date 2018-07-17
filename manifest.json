@@ -1,0 +1,29 @@
+{
+    "author": "Marco Schaefer",
+    "browser_action": {
+        "default_icon": {
+            "32": "images/get_started32.png"
+        },
+        "default_popup": "popup.html",
+        "default_title": "BOT Para Olymp Trade"
+    },
+    "content_scripts": [
+        {
+            "js": [
+                "js/content.js"
+            ],
+            "matches": [
+                "https://olymptrade.com/*"
+            ]
+        }
+    ],
+    "description": "BOT Para Olymp Trade",
+    "manifest_version": 2,
+    "name": "BOT Para Olymp Trade",
+    "permissions": [
+        "tabs",
+        "activeTab",
+        "storage"
+    ],
+    "version": "0.0.1"
+}
