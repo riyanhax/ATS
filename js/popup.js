@@ -7,8 +7,8 @@ function updateState() {
             state = result[0];
             document.getElementById("state_active_up").innerText = config.active.up;
             document.getElementById("state_active_down").innerText = config.active.down;
-            document.getElementById("peak_variation").value = config.peak_variation;
-            document.getElementById("history_length").value = config.history_length;
+            document.getElementById("state_peak_variation").innerText = config.peak_variation;
+            document.getElementById("state_history_length").innerText = config.history_length;
             document.getElementById("mean").innerText = state.mean;
             document.getElementById("peak").innerText = state.peak;
         }

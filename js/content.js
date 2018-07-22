@@ -3,7 +3,7 @@ data_socket = new WebSocket("wss://olymptrade.com/ws2");
 action_socket = new WebSocket("wss://olymptrade.com/ds");
 
 data_socket.onopen = function() {
-    data = {
+    var data = {
         "pair": "Bitcoin",
         "size": 1
     }
@@ -13,7 +13,7 @@ data_socket.onopen = function() {
 
 action_socket.onopen = function() {
     var date = new Date();
-    data = [{
+    var data = [{
             "type": "push",
             "uuid": "JJOSRQB4KVWL6P7R64",
             "event_name": "source:set",
@@ -85,7 +85,7 @@ function meanOfLastN(data, n) {
 
 function newTrade(value, dir) {
     var date = new Date();
-    data = [{
+    var data = [{
         "data_type": "deal_open",
         "event_name": "deals:demo:opening",
         "timestamp": Math.round(date.getTime() / 1000),
@@ -103,11 +103,12 @@ function newTrade(value, dir) {
         }]
     }];
     action_socket.send(JSON.stringify(data));
+    return;
 }
 
 
 data_socket.onmessage = function(message) {
-    data = JSON.parse(message.data);
+    var data = JSON.parse(message.data);
     if (data.hasOwnProperty('close')) {
 
         if (data_history.length > 0) {
