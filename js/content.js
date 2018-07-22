@@ -1,5 +1,3 @@
-//alert("Hello");
-
 data_socket = new WebSocket("wss://olymptrade.com/ws2");
 
 action_socket = new WebSocket("wss://olymptrade.com/ds");
@@ -105,7 +103,6 @@ function newTrade(value, dir) {
         }]
     }];
     action_socket.send(JSON.stringify(data));
-    alert(last_variation);
 }
 
 
