@@ -1,52 +1,43 @@
-data_socket = new WebSocket("wss://olymptrade.com/ws2");
+data_socket = new WebSocket("wss://olymptrade.com/ds/v2");
 
-action_socket = new WebSocket("wss://olymptrade.com/ds");
+Array.prototype.stanDeviate = function() {
+    var i, j, total = 0,
+        mean = 0,
+        diffSqredArr = [];
+    for (i = 0; i < this.length; i += 1) {
+        total += this[i];
+    }
+    mean = total / this.length;
+    for (j = 0; j < this.length; j += 1) {
+        diffSqredArr.push(Math.pow((this[j] - mean), 2));
+    }
+    return (Math.sqrt(diffSqredArr.reduce(function(firstEl, nextEl) {
+        return firstEl + nextEl;
+    }) / this.length));
+};
 
 data_socket.onopen = function() {
-    var data = {
-        "pair": "Bitcoin",
-        "size": 1
-    }
+    var data = [{
+        "t": 2,
+        "e": 4,
+        "uuid": "JJXTW4NRP1S8L1NBJB",
+        "d": [{
+            "p": "Bitcoin",
+            "tf": 1
+        }]
+    }];
+    data_socket.send(JSON.stringify(data));
+    data = [{
+        "t": 2,
+        "e": 95,
+        "uuid": "JJXW12OLVSLF994IY1",
+        "d": [{
+            "cat": "digital",
+            "pair": "Bitcoin"
+        }]
+    }];
     data_socket.send(JSON.stringify(data));
     console.log("data socket started");
-}
-
-action_socket.onopen = function() {
-    var date = new Date();
-    var data = [{
-            "type": "push",
-            "uuid": "JJOSRQB4KVWL6P7R64",
-            "event_name": "source:set",
-            "data_type": "source",
-            "timestamp": date.getTime(),
-            "data": [{
-                "source": "platform"
-            }]
-        },
-        {
-            "type": "push",
-            "uuid": "JJOTJ4EW8DWHAAQY8MV",
-            "event_name": "api_version:set",
-            "data_type": "api_version",
-            "timestamp": date.getTime(),
-            "data": [{
-                "ver": 2
-            }]
-        },
-        {
-            "type": "request",
-            "uuid": "JJOSRQB41EC8IPUMI71",
-            "event_name": "pair_active:set",
-            "data_type": "pair_active",
-            "data": [{
-                "cat": "digital",
-                "pair": "Bitcoin"
-            }],
-            "timestamp": Math.round(date.getTime() / 1000),
-        }
-    ];
-    action_socket.send(JSON.stringify(data));
-    console.log("action socket started");
 }
 
 
@@ -54,7 +45,10 @@ action_socket.onopen = function() {
 
 
 data_history = [];
-last_variation = 0;
+last_peak = 0;
+last_std_deviation = 0;
+last_mean = 0;
+payback = 0;
 
 config = {
     'active': {
@@ -62,15 +56,18 @@ config = {
         'down': false
     },
     'bet_value': 2,
-    'peak_variation': 1.5,
-    'history_length': 5
+    'peak_variation': 3,
+    'history_length': 100,
+    'minimum_payback': 80
 }
 
 function getState() {
     return {
         'config': config,
-        'peak': last_variation,
-        'mean': meanOfLastN(data_history, config.history_length)
+        'peak': last_peak,
+        'mean': last_mean,
+        'std_deviation': last_std_deviation,
+        'payback': payback
     };
 }
 
@@ -85,48 +82,50 @@ function meanOfLastN(data, n) {
 
 function newTrade(value, dir) {
     var date = new Date();
+
     var data = [{
-        "data_type": "deal_open",
-        "event_name": "deals:demo:opening",
-        "timestamp": Math.round(date.getTime() / 1000),
-        "type": "request",
-        "data": [{
-            "amount": value,
-            "cat": "digital",
+        "t": 2,
+        "e": 23,
+        "d": [{
+            "amount": 2,
             "dir": dir,
-            "duration": 60,
-            "group": "demo",
             "pair": "Bitcoin",
+            "cat": "digital",
             "pos": 0,
             "source": "platform",
-            "timestamp": date.getTime()
+            "group": "demo",
+            "timestamp": date.getTime(),
+            "duration": 60
         }]
     }];
-    action_socket.send(JSON.stringify(data));
+    data_socket.send(JSON.stringify(data));
     return;
 }
 
 
 data_socket.onmessage = function(message) {
-    var data = JSON.parse(message.data);
-    if (data.hasOwnProperty('close')) {
-
+    var data = JSON.parse(message.data)[0];
+    if (data.e == 1) {
+        data = data.d[0];
+        while (data_history.length >= config.history_length) {
+            data_history.shift();
+        }
+        data_history.push(data.q);
         if (data_history.length > 0) {
-            last_variation = data.close - meanOfLastN(data_history, config.history_length);
-            if (config.active.down && data.close > meanOfLastN(data_history, config.history_length) + config.peak_variation) {
-                //console.log("new trade: down");
+            last_std_deviation = data_history.stanDeviate();
+            last_mean = meanOfLastN(data_history, config.history_length);
+            last_peak = (data.q - last_mean) / last_std_deviation;
+            if (config.active.down && last_peak > config.peak_variation && payback > config.minimum_payback) {
+                //console.log(last_peak);
                 newTrade(config.bet_value, "down");
             }
-            if (config.active.up && data.close < meanOfLastN(data_history, config.history_length) - config.peak_variation) {
-                //console.log("new trade: up");
+            if (config.active.up && last_peak < -1 * config.peak_variation && payback > config.minimum_payback) {
+                //console.log(last_peak);
                 newTrade(config.bet_value, "up");
             }
         }
-
-        if (data_history.length >= config.history_length) {
-            data_history.shift();
-        }
-
-        data_history.push(data.close);
+    }
+    if (data.e == 80) {
+        payback = data.d[0].d[3].s[0].dw;
     }
 }
