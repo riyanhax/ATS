@@ -11,7 +11,7 @@ function updateState() {
             document.getElementById("state_history_length").innerText = config.history_length;
             document.getElementById("mean").innerText = state.mean;
             document.getElementById("peak").innerText = state.peak;
-            document.getElementById("std_deviation").innerText = state.std_deviation;
+            //document.getElementById("std_deviation").innerText = state.std_deviation;
             document.getElementById("payback").innerText = state.payback;
             document.getElementById("state_minimum_payback").innerText = config.minimum_payback;
         }

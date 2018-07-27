@@ -37,7 +37,6 @@ data_socket.onopen = function() {
         }]
     }];
     data_socket.send(JSON.stringify(data));
-    console.log("data socket started");
 }
 
 
@@ -49,6 +48,7 @@ last_peak = 0;
 last_std_deviation = 0;
 last_mean = 0;
 payback = 0;
+order_cooldown = 0;
 
 config = {
     'active': {
@@ -56,8 +56,8 @@ config = {
         'down': false
     },
     'bet_value': 2,
-    'peak_variation': 3,
-    'history_length': 100,
+    'peak_variation': 1.5,
+    'history_length': 1,
     'minimum_payback': 80
 }
 
@@ -102,30 +102,124 @@ function newTrade(value, dir) {
     return;
 }
 
+previous_up_order_id = 0;
+previous_down_order_id = 0;
+
+function cancelPreviousUpOrder() {
+    var data = [{
+        "t": 2,
+        "e": 41,
+        "d": [{
+            "id": previous_up_order_id,
+            "pair": "Bitcoin",
+            "dir": "up",
+            "duration": 60,
+            "status": "wait",
+            "group": "demo",
+            "amount": 2,
+            "currency": "brl"
+        }]
+    }];
+    data_socket.send(JSON.stringify(data));
+}
+
+function cancelPreviousDownOrder() {
+    var data = [{
+        "t": 2,
+        "e": 41,
+        "d": [{
+            "id": previous_down_order_id,
+            "pair": "Bitcoin",
+            "dir": "up",
+            "duration": 60,
+            "status": "wait",
+            "group": "demo",
+            "amount": 2,
+            "currency": "brl"
+        }]
+    }];
+    data_socket.send(JSON.stringify(data));
+}
+
+function newUpOrder() {
+    var data = [{
+        "t": 2,
+        "e": 40,
+        "d": [{
+            "amount": 2,
+            "pair": "Bitcoin",
+            "dir": "up",
+            "group": "demo",
+            "duration": 60,
+            "winperc": config.minimum_payback,
+            "course_target": last_mean - config.peak_variation
+        }]
+    }];
+    data_socket.send(JSON.stringify(data));
+}
+
+function newDownOrder() {
+    var data = [{
+        "t": 2,
+        "e": 40,
+        "d": [{
+            "amount": 2,
+            "pair": "Bitcoin",
+            "dir": "down",
+            "group": "demo",
+            "duration": 60,
+            "winperc": config.minimum_payback,
+            "course_target": last_mean + config.peak_variation
+        }]
+    }];
+    data_socket.send(JSON.stringify(data));
+}
+
 
 data_socket.onmessage = function(message) {
-    var data = JSON.parse(message.data)[0];
-    if (data.e == 1) {
-        data = data.d[0];
+    var receivedData = JSON.parse(message.data)[0];
+    //receivedData.e == 1 -> Novos dados
+    if (receivedData.e == 1) {
+        receivedData = receivedData.d[0];
+        if (data_history.length > 0) {
+            last_mean = meanOfLastN(data_history, config.history_length);
+            last_peak = receivedData.q - last_mean;
+            if(!order_cooldown){
+                if(config.active.up){
+                    cancelPreviousUpOrder();
+                    newUpOrder();
+                    order_cooldown = 1;
+                }
+                if(config.active.down){
+                    cancelPreviousDownOrder();
+                    newDownOrder();
+                    order_cooldown = 1;
+                }
+                if(order_cooldown){
+                    setTimeout(function(){order_cooldown=0},1000*5);
+                }
+            }
+        }
         while (data_history.length >= config.history_length) {
             data_history.shift();
         }
-        data_history.push(data.q);
-        if (data_history.length > 0) {
-            last_std_deviation = data_history.stanDeviate();
-            last_mean = meanOfLastN(data_history, config.history_length);
-            last_peak = (data.q - last_mean) / last_std_deviation;
-            if (config.active.down && last_peak > config.peak_variation && payback > config.minimum_payback) {
-                //console.log(last_peak);
-                newTrade(config.bet_value, "down");
-            }
-            if (config.active.up && last_peak < -1 * config.peak_variation && payback > config.minimum_payback) {
-                //console.log(last_peak);
-                newTrade(config.bet_value, "up");
-            }
+        data_history.push(receivedData.q);
+    }
+    //receivedData.e == 80 -> Contém o payback
+    if (receivedData.e == 80) {
+        payback = receivedData.d[0].d[3].s[0].dw;
+    }
+    //receivedData.e == 40 -> Confirmação de order
+    if (receivedData.e == 40 && receivedData.t == 3) {
+        if(!receivedData.d){
+            return;
+        }
+        receivedData = receivedData.d[0];
+        if (receivedData.dir == "up") {
+            previous_up_order_id = receivedData.id;
+        } else {
+            previous_down_order_id = receivedData.id;
         }
     }
-    if (data.e == 80) {
-        payback = data.d[0].d[3].s[0].dw;
-    }
+
 }
