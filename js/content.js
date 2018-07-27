@@ -58,7 +58,8 @@ config = {
     'bet_value': 2,
     'peak_variation': 1.5,
     'history_length': 1,
-    'minimum_payback': 80
+    'minimum_payback': 80,
+    'order_cooldown': 10
 }
 
 function getState() {
@@ -196,7 +197,7 @@ data_socket.onmessage = function(message) {
                     order_cooldown = 1;
                 }
                 if(order_cooldown){
-                    setTimeout(function(){order_cooldown=0},1000*5);
+                    setTimeout(function(){order_cooldown=0},1000*config.order_cooldown);
                 }
             }
         }

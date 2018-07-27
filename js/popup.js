@@ -13,6 +13,7 @@ function updateState() {
             document.getElementById("peak").innerText = state.peak;
             //document.getElementById("std_deviation").innerText = state.std_deviation;
             document.getElementById("payback").innerText = state.payback;
+            document.getElementById("state_order_cooldown").innerText = config.order_cooldown;
             document.getElementById("state_minimum_payback").innerText = config.minimum_payback;
         }
     );
@@ -40,6 +41,13 @@ function setPeakVariation() {
     updateState();
 }
 
+function setOrderCooldown() {
+    chrome.tabs.executeScript({
+        code: `config.order_cooldown = ` + document.getElementById('order_cooldown').value + `;`
+    });
+    updateState();
+}
+
 function setMinimumPayback() {
     chrome.tabs.executeScript({
         code: `config.minimum_payback = ` + document.getElementById('minimum_payback').value + `;`
@@ -59,5 +67,6 @@ document.getElementById('toggle_active_down').addEventListener('click', toggleAc
 document.getElementById('set_peak_variation').addEventListener('click', setPeakVariation);
 document.getElementById('set_history_length').addEventListener('click', setHistoryLength);
 document.getElementById('set_minimum_payback').addEventListener('click', setMinimumPayback);
+document.getElementById('set_order_cooldown').addEventListener('click', setOrderCooldown);
 
 updateState();
