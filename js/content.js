@@ -52,8 +52,8 @@ order_cooldown = 0;
 
 config = {
     'active': {
-        'up': false,
-        'down': false
+        'up': true,
+        'down': true
     },
     'bet_value': 2,
     'peak_variation': 1.5,
@@ -81,7 +81,13 @@ function meanOfLastN(data, n) {
     return result;
 }
 
-function newTrade(value, dir) {
+function newTrade(dir) {
+    if(dir=="up" && !config.active.up){
+        return;
+    }
+    if(dir=="down" && !config.active.down){
+        return;
+    }
     var date = new Date();
 
     var data = [{
@@ -185,6 +191,7 @@ data_socket.onmessage = function(message) {
         if (data_history.length > 0) {
             last_mean = meanOfLastN(data_history, config.history_length);
             last_peak = receivedData.q - last_mean;
+            /*
             if(!order_cooldown){
                 if(config.active.up){
                     cancelPreviousUpOrder();
@@ -200,6 +207,7 @@ data_socket.onmessage = function(message) {
                     setTimeout(function(){order_cooldown=0},1000*config.order_cooldown);
                 }
             }
+            */
         }
         while (data_history.length >= config.history_length) {
             data_history.shift();
@@ -224,3 +232,11 @@ data_socket.onmessage = function(message) {
     }
 
 }
+
+function doTrades(){
+    newTrade('up');
+    setTimeout(function(){newTrade('down');},60*1000);
+    setTimeout(function(){doTrades();},2*60*1000);
+}
+
+setTimeout(function(){doTrades();},10*1000);
