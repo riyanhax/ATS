@@ -61,7 +61,7 @@ data_history = [];
 last_peak = 0;
 last_std_deviation = 0;
 last_mean = 0;
-payback = 100;
+payback = 0;
 order_cooldown = 0;
 last_dir = "down";
 next_bet = config.initial_bet;
@@ -247,7 +247,7 @@ data_socket.onmessage = function(message) {
 }
 
 function main(){
-    if(!config.active.all){
+    if(!config.active.all||payback < config.minimum_payback){
         setTimeout(function(){main();},1000);
         return;
     }

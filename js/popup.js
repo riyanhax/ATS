@@ -19,7 +19,7 @@ function updateState() {
             //document.getElementById("std_deviation").innerText = state.std_deviation;
             document.getElementById("payback").innerText = state.payback;
             //document.getElementById("state_order_cooldown").innerText = config.order_cooldown;
-            //document.getElementById("state_minimum_payback").innerText = config.minimum_payback;
+            document.getElementById("state_minimum_payback").innerText = config.minimum_payback;
         }
     );
     setTimeout(updateState, 1000);
@@ -111,7 +111,7 @@ document.getElementById('set_maximum_bet').addEventListener('click', setMaximumB
 //document.getElementById('toggle_active_down').addEventListener('click', toggleActiveDown);
 //document.getElementById('set_peak_variation').addEventListener('click', setPeakVariation);
 //document.getElementById('set_history_length').addEventListener('click', setHistoryLength);
-//document.getElementById('set_minimum_payback').addEventListener('click', setMinimumPayback);
+document.getElementById('set_minimum_payback').addEventListener('click', setMinimumPayback);
 //document.getElementById('set_order_cooldown').addEventListener('click', setOrderCooldown);
 
 updateState();
