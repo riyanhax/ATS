@@ -40,27 +40,33 @@ data_socket.onopen = function() {
 }
 
 
-
+config = {
+    'active': {
+        'up': false,
+        'down': false,
+        'all': false
+    },
+    'initial_bet': 2,
+    'peak_variation': 1.5,
+    'history_length': 1,
+    'minimum_payback': 80,
+    'order_cooldown': 10,
+    'multiplier': 2,
+    'auto_multiplier': false,
+    'maximum_bet': 400
+}
 
 
 data_history = [];
 last_peak = 0;
 last_std_deviation = 0;
 last_mean = 0;
-payback = 0;
+payback = 100;
 order_cooldown = 0;
+last_dir = "down";
+next_bet = config.initial_bet;
 
-config = {
-    'active': {
-        'up': true,
-        'down': true
-    },
-    'bet_value': 2,
-    'peak_variation': 1.5,
-    'history_length': 1,
-    'minimum_payback': 80,
-    'order_cooldown': 10
-}
+
 
 function getState() {
     return {
@@ -81,20 +87,13 @@ function meanOfLastN(data, n) {
     return result;
 }
 
-function newTrade(dir) {
-    if(dir=="up" && !config.active.up){
-        return;
-    }
-    if(dir=="down" && !config.active.down){
-        return;
-    }
+function newTrade(dir,amount) {
     var date = new Date();
-
     var data = [{
         "t": 2,
         "e": 23,
         "d": [{
-            "amount": 2,
+            "amount": amount,
             "dir": dir,
             "pair": "Bitcoin",
             "cat": "digital",
@@ -148,12 +147,29 @@ function cancelPreviousDownOrder() {
     data_socket.send(JSON.stringify(data));
 }
 
-function newUpOrder() {
+function newOrder(dir,amount) {
     var data = [{
         "t": 2,
         "e": 40,
         "d": [{
-            "amount": 2,
+            "amount": amount,
+            "pair": "Bitcoin",
+            "dir": dir,
+            "group": "demo",
+            "duration": 60,
+            "winperc": config.minimum_payback,
+            "course_target": last_mean - config.peak_variation
+        }]
+    }];
+    data_socket.send(JSON.stringify(data));
+}
+
+function newUpOrder(amount) {
+    var data = [{
+        "t": 2,
+        "e": 40,
+        "d": [{
+            "amount": amount,
             "pair": "Bitcoin",
             "dir": "up",
             "group": "demo",
@@ -165,12 +181,12 @@ function newUpOrder() {
     data_socket.send(JSON.stringify(data));
 }
 
-function newDownOrder() {
+function newDownOrder(amount) {
     var data = [{
         "t": 2,
         "e": 40,
         "d": [{
-            "amount": 2,
+            "amount": amount,
             "pair": "Bitcoin",
             "dir": "down",
             "group": "demo",
@@ -184,59 +200,72 @@ function newDownOrder() {
 
 
 data_socket.onmessage = function(message) {
-    var receivedData = JSON.parse(message.data)[0];
-    //receivedData.e == 1 -> Novos dados
-    if (receivedData.e == 1) {
-        receivedData = receivedData.d[0];
-        if (data_history.length > 0) {
-            last_mean = meanOfLastN(data_history, config.history_length);
-            last_peak = receivedData.q - last_mean;
-            /*
-            if(!order_cooldown){
-                if(config.active.up){
-                    cancelPreviousUpOrder();
-                    newUpOrder();
-                    order_cooldown = 1;
-                }
-                if(config.active.down){
-                    cancelPreviousDownOrder();
-                    newDownOrder();
-                    order_cooldown = 1;
-                }
-                if(order_cooldown){
-                    setTimeout(function(){order_cooldown=0},1000*config.order_cooldown);
-                }
+    var data = JSON.parse(message.data);
+    for(i=0;i<data.length;i++){
+        receivedData = data[i];
+        //receivedData.e == 1 -> Novos dados
+        if (receivedData.e == 1) {
+            receivedData = receivedData.d[0];
+            if (data_history.length > 0) {
+                last_mean = meanOfLastN(data_history, config.history_length);
+                last_peak = receivedData.q - last_mean;
             }
-            */
+            while (data_history.length >= config.history_length) {
+                data_history.shift();
+            }
+            data_history.push(receivedData.q);
         }
-        while (data_history.length >= config.history_length) {
-            data_history.shift();
+        //receivedData.e == 80 -> Contém o payback
+        if (receivedData.e == 80) {
+            payback = receivedData.d[0].d[3].s[0].dw;
         }
-        data_history.push(receivedData.q);
+        //receivedData.e == 40 -> Confirmação de order
+        if (receivedData.e == 40 && receivedData.t == 3) {
+            if(!receivedData.d){
+                return;
+            }
+            receivedData = receivedData.d[0];
+            if (receivedData.dir == "up") {
+                previous_up_order_id = receivedData.id;
+            } else {
+                previous_down_order_id = receivedData.id;
+            }
+        }
+        //receivedData.e == 26 -> Resultado da trade
+        if(receivedData.e == 26){
+            status = receivedData.d[0].interim_status;
+            balance_change = receivedData.d[0].interim_balance_change;
+            if(status=="cancel"){
+                return;
+            }
+            if(status=="win"){
+                next_bet = config.initial_bet;
+            }
+            main();
+        }
     }
-    //receivedData.e == 80 -> Contém o payback
-    if (receivedData.e == 80) {
-        payback = receivedData.d[0].d[3].s[0].dw;
-    }
-    //receivedData.e == 40 -> Confirmação de order
-    if (receivedData.e == 40 && receivedData.t == 3) {
-        if(!receivedData.d){
-            return;
-        }
-        receivedData = receivedData.d[0];
-        if (receivedData.dir == "up") {
-            previous_up_order_id = receivedData.id;
-        } else {
-            previous_down_order_id = receivedData.id;
-        }
-    }
-
 }
 
-function doTrades(){
-    newTrade('up');
-    setTimeout(function(){newTrade('down');},60*1000);
-    setTimeout(function(){doTrades();},2*60*1000);
+function main(){
+    if(!config.active.all){
+        setTimeout(function(){main();},1000);
+        return;
+    }
+    if(last_dir=="down"){
+        last_dir="up";
+    }else{
+        last_dir="down";
+    }
+    newTrade(last_dir,next_bet);
+    if(config.auto_multiplier){
+        aux_payback = 1 + (payback/100);
+        next_bet = next_bet*(aux_payback/(aux_payback-1));
+    }else{
+        next_bet = next_bet*config.multiplier;
+    }
+    if(next_bet>config.maximum_bet){
+        next_bet = config.initial_bet;
+    }
 }
 
-setTimeout(function(){doTrades();},10*1000);
+setTimeout(function(){main();},1000);
