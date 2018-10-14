@@ -3,8 +3,12 @@ function updateState() {
             code: `getState();`
         },
         function(result) {
+            if(result[0] == undefined){
+              return;
+            }
             config = result[0].config;
             state = result[0];
+            available_coins = result[0].available_coins;
             document.getElementById("state_active").innerText = config.active.all;
             document.getElementById("state_initial_bet").innerText = config.initial_bet;
             document.getElementById("state_multiplier").innerText = config.multiplier;
@@ -20,6 +24,14 @@ function updateState() {
             document.getElementById("payback").innerText = state.payback;
             //document.getElementById("state_order_cooldown").innerText = config.order_cooldown;
             document.getElementById("state_minimum_payback").innerText = config.minimum_payback;
+
+            if (!document.getElementById("coin").innerHTML){
+                var coin_options = "";
+                for(i=0;i<available_coins.length;i++){
+                  coin_options += "<option id='"+available_coins[i]+"'>"+available_coins[i]+"</option>";
+                }
+                document.getElementById("coin").innerHTML = coin_options;
+            }
         }
     );
     setTimeout(updateState, 1000);
@@ -28,6 +40,13 @@ function updateState() {
 function setMaximumBet() {
     chrome.tabs.executeScript({
         code: `config.maximum_bet = ` + document.getElementById('maximum_bet').value + `;`
+    });
+    updateState();
+}
+
+function setCoin() {
+    chrome.tabs.executeScript({
+        code: `config.coin = ` + document.getElementById('coin').value + `;`
     });
     updateState();
 }
@@ -107,6 +126,7 @@ document.getElementById('toggle_active').addEventListener('click', toggleActiveA
 document.getElementById('set_initial_bet').addEventListener('click', setInitialBet);
 document.getElementById('set_multiplier').addEventListener('click', setMultiplier);
 document.getElementById('set_maximum_bet').addEventListener('click', setMaximumBet);
+document.getElementById('set_coin').addEventListener('click', setCoin);
 //document.getElementById('toggle_active_up').addEventListener('click', toggleActiveUp);
 //document.getElementById('toggle_active_down').addEventListener('click', toggleActiveDown);
 //document.getElementById('set_peak_variation').addEventListener('click', setPeakVariation);

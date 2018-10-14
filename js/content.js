@@ -1,5 +1,22 @@
 data_socket = new WebSocket("wss://olymptrade.com/ds/v2");
 
+config = {
+    'active': {
+        'up': false,
+        'down': false,
+        'all': false
+    },
+    'initial_bet': 2,
+    'peak_variation': 1.5,
+    'history_length': 1,
+    'minimum_payback': 80,
+    'order_cooldown': 10,
+    'multiplier': 2,
+    'auto_multiplier': false,
+    'maximum_bet': 400,
+    'coin': 'Bitcoin'
+}
+
 Array.prototype.stanDeviate = function() {
     var i, j, total = 0,
         mean = 0,
@@ -22,7 +39,7 @@ data_socket.onopen = function() {
         "e": 4,
         "uuid": "JJXTW4NRP1S8L1NBJB",
         "d": [{
-            "p": "Bitcoin",
+            "p": config.coin,
             "tf": 1
         }]
     }];
@@ -33,28 +50,14 @@ data_socket.onopen = function() {
         "uuid": "JJXW12OLVSLF994IY1",
         "d": [{
             "cat": "digital",
-            "pair": "Bitcoin"
+            "pair": config.coin
         }]
     }];
     data_socket.send(JSON.stringify(data));
 }
 
 
-config = {
-    'active': {
-        'up': false,
-        'down': false,
-        'all': false
-    },
-    'initial_bet': 2,
-    'peak_variation': 1.5,
-    'history_length': 1,
-    'minimum_payback': 80,
-    'order_cooldown': 10,
-    'multiplier': 2,
-    'auto_multiplier': false,
-    'maximum_bet': 400
-}
+
 
 
 data_history = [];
@@ -65,6 +68,7 @@ payback = 0;
 order_cooldown = 0;
 last_dir = "down";
 next_bet = config.initial_bet;
+available_coins = [];
 
 
 
@@ -74,7 +78,8 @@ function getState() {
         'peak': last_peak,
         'mean': last_mean,
         'std_deviation': last_std_deviation,
-        'payback': payback
+        'payback': payback,
+        'available_coins': available_coins
     };
 }
 
@@ -95,7 +100,7 @@ function newTrade(dir,amount) {
         "d": [{
             "amount": amount,
             "dir": dir,
-            "pair": "Bitcoin",
+            "pair": config.coin,
             "cat": "digital",
             "pos": 0,
             "source": "platform",
@@ -117,7 +122,7 @@ function cancelPreviousUpOrder() {
         "e": 41,
         "d": [{
             "id": previous_up_order_id,
-            "pair": "Bitcoin",
+            "pair": config.coin,
             "dir": "up",
             "duration": 60,
             "status": "wait",
@@ -135,7 +140,7 @@ function cancelPreviousDownOrder() {
         "e": 41,
         "d": [{
             "id": previous_down_order_id,
-            "pair": "Bitcoin",
+            "pair": config.coin,
             "dir": "up",
             "duration": 60,
             "status": "wait",
@@ -153,7 +158,7 @@ function newOrder(dir,amount) {
         "e": 40,
         "d": [{
             "amount": amount,
-            "pair": "Bitcoin",
+            "pair": config.coin,
             "dir": dir,
             "group": "demo",
             "duration": 60,
@@ -170,7 +175,7 @@ function newUpOrder(amount) {
         "e": 40,
         "d": [{
             "amount": amount,
-            "pair": "Bitcoin",
+            "pair": config.coin,
             "dir": "up",
             "group": "demo",
             "duration": 60,
@@ -187,7 +192,7 @@ function newDownOrder(amount) {
         "e": 40,
         "d": [{
             "amount": amount,
-            "pair": "Bitcoin",
+            "pair": config.coin,
             "dir": "down",
             "group": "demo",
             "duration": 60,
@@ -214,6 +219,12 @@ data_socket.onmessage = function(message) {
                 data_history.shift();
             }
             data_history.push(receivedData.q);
+        }
+        //receivedData.e == 70 -> Contém nomes das moedas
+        if(receivedData.e == 70 && available_coins.length == 0) {
+          for(j=0;j<receivedData.d.length;j++){
+            available_coins.push(receivedData.d[j].id);
+          }
         }
         //receivedData.e == 80 -> Contém o payback
         if (receivedData.e == 80) {
